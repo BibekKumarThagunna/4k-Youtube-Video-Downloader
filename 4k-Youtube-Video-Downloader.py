@@ -13,10 +13,17 @@ def check_ffmpeg():
 
 def get_video_info(url):
     ydl_opts = {'quiet': True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(url, download=False)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            return ydl.extract_info(url, download=False)
+    except Exception as e:
+        st.error(f"Error getting video info: {str(e)}")
+        return None
 
 def get_quality_options(info):
+    if not info:
+        return []
+    
     formats = []
     seen = set()
     
@@ -70,6 +77,8 @@ Path("downloads").mkdir(exist_ok=True)
 # URL input
 url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch?v=...")
 
+format_id = None  # Initialize variable
+
 if url:
     try:
         with st.spinner("Fetching video info..."):
@@ -82,30 +91,38 @@ if url:
                 col2.markdown(f"**Duration:** {info['duration'] // 60} mins")
                 
                 quality_options = get_quality_options(info)
-                selected = st.selectbox(
-                    "Select Quality:",
-                    options=[q[0] for q in quality_options],
-                    index=0
-                )
-                format_id = quality_options[[q[0] for q in quality_options].index(selected)][1]
+                if quality_options:
+                    selected = st.selectbox(
+                        "Select Quality:",
+                        options=[q[0] for q in quality_options],
+                        index=0
+                    )
+                    format_id = quality_options[[q[0] for q in quality_options].index(selected)][1]
+                else:
+                    st.error("No available formats found")
+    except Exception as e:
+        st.error(f"Error processing URL: {str(e)}")
 
 if st.button("Download Video"):
     if url and format_id:
-        with st.spinner("Downloading..."):
-            file_path, title = download_video(url, format_id)
-            
-            if file_path:
-                st.success("Download complete!")
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        "Save Video",
-                        data=f,
-                        file_name=os.path.basename(file_path),
-                        mime="video/mp4"
-                    )
-                Path(file_path).unlink()
+        try:
+            with st.spinner("Downloading..."):
+                file_path, title = download_video(url, format_id)
+                
+                if file_path:
+                    st.success("Download complete!")
+                    with open(file_path, "rb") as f:
+                        st.download_button(
+                            "Save Video",
+                            data=f,
+                            file_name=os.path.basename(file_path),
+                            mime="video/mp4"
+                        )
+                    Path(file_path).unlink()
+        except Exception as e:
+            st.error(f"Download failed: {str(e)}")
     else:
-        st.warning("Please enter a valid URL")
+        st.warning("Please enter a valid URL and select quality")
 
 st.markdown("---")
 st.caption("Note: For educational purposes only. Respect copyright laws.")
