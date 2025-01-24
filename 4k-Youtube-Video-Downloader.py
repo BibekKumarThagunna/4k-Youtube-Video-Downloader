@@ -118,7 +118,10 @@ if st.button("Prepare-Video-To-Download"):
                 file_path, title = download_video(url, format_id)
 
                 if file_path:
-                    st.success("Prepared!")
+                    # Get file size in MB
+                    file_size = os.path.getsize(file_path) / (1024 * 1024)
+                    st.success(f"Prepared! Video size: {file_size:.2f} MB")
+
                     with open(file_path, "rb") as f:
                         st.download_button(
                             "Save Video",
@@ -133,4 +136,4 @@ if st.button("Prepare-Video-To-Download"):
         st.warning("Please enter a valid URL and select quality")
 
 st.markdown("---")
-st.caption("Note: For educational purposes only. Respect copyright laws.")
+st.caption("This project is created by **Bibek Kumar Thagunna**. For educational purposes only. Respect copyright laws.")
