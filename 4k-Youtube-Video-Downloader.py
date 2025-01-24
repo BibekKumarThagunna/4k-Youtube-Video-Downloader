@@ -1,12 +1,22 @@
 import streamlit as st
 import yt_dlp
-import io
+import os
+import subprocess
+from pathlib import Path
+
+# Check if FFmpeg is installed
+def check_ffmpeg():
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+        return True
+    except:
+        return False
 
 # Get video information
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
-        'cookiefile': 'cookies.txt',  # Optional: Use cookies to bypass restrictions if necessary
+        'cookiefile': 'cookies.txt',  # Path to cookies.txt
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -15,7 +25,7 @@ def get_video_info(url):
         st.error(f"Error getting video info: {str(e)}")
         return None
 
-# Get quality options
+# Get quality options from video info
 def get_quality_options(info):
     if not info:
         return []
@@ -24,7 +34,7 @@ def get_quality_options(info):
     seen = set()
 
     for f in info['formats']:
-        if f.get('vcodec') != 'none':  # Include only video formats
+        if f.get('vcodec') != 'none':
             res = f.get('height')
             if res:
                 label = f"{res}p | {f.get('fps', '')}fps | {f.get('ext', '').upper()}"
@@ -35,71 +45,92 @@ def get_quality_options(info):
     formats.sort(key=lambda x: int(x[0].split('p')[0]), reverse=True)
     return formats
 
-# Download video into memory
-def download_video_to_memory(url, format_id):
+# Download video
+def download_video(url, format_id):
     try:
-        buffer = io.BytesIO()
         ydl_opts = {
             'format': f'{format_id}+bestaudio/best',
-            'quiet': True,
-            'outtmpl': '-',  # Avoid saving to disk
+            'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
+            'quiet': True,
+            'cookiefile': 'cookies.txt',  # Path to cookies.txt
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-            info = ydl.extract_info(url, download=False)
-            return buffer, info["title"]
+            info = ydl.extract_info(url)
+            filename = ydl.prepare_filename(info)
+            return filename, info['title']
     except Exception as e:
-        st.error(f"Error downloading video: {str(e)}")
+        st.error(f"Download error: {str(e)}")
         return None, None
 
 # Streamlit UI
-st.set_page_config(page_title="YouTube Downloader", page_icon="🎬", layout="centered")
-st.title("YouTube Video Downloader 🎥")
-st.markdown("### Fetch and download YouTube videos in your preferred quality.")
+st.set_page_config(
+    page_title="YouTube Downloader",
+    page_icon="🎬",
+    layout="centered"
+)
 
-# Input URL
-url = st.text_input("Enter YouTube URL:", placeholder="https://www.youtube.com/watch?v=...")
+st.title("YouTube Video Downloader 🎥")
+st.markdown("### Download videos in maximum quality")
+
+# Check FFmpeg
+if not check_ffmpeg():
+    st.error("FFmpeg not found! Please install it on your system.")
+    st.stop()
+
+# Create downloads directory
+Path("downloads").mkdir(exist_ok=True)
+
+# URL input
+url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch?v=...")
+
+format_id = None  # Initialize variable
 
 if url:
-    with st.spinner("Fetching video information..."):
-        info = get_video_info(url)
+    try:
+        with st.spinner("Fetching video info..."):
+            info = get_video_info(url)
 
-    if info:
-        st.subheader("Video Details")
-        col1, col2 = st.columns(2)
-        col1.markdown(f"**Title:** {info['title']}")
-        col2.markdown(f"**Duration:** {info['duration'] // 60} mins")
+            if info:
+                st.subheader("Video Details")
+                col1, col2 = st.columns(2)
+                col1.markdown(f"**Title:** {info['title']}")
+                col2.markdown(f"**Duration:** {info['duration'] // 60} mins")
 
-        quality_options = get_quality_options(info)
-        if quality_options:
-            selected = st.selectbox(
-                "Select Quality:",
-                options=[q[0] for q in quality_options],
-                index=0
-            )
-            format_id = quality_options[[q[0] for q in quality_options].index(selected)][1]
-
-            if st.button("Download Video"):
-                with st.spinner("Downloading video..."):
-                    buffer, title = download_video_to_memory(url, format_id)
-
-                if buffer:
-                    st.success("Download ready!")
-                    st.download_button(
-                        label="Click to Download",
-                        data=buffer,
-                        file_name=f"{title}.mp4",
-                        mime="video/mp4"
+                quality_options = get_quality_options(info)
+                if quality_options:
+                    selected = st.selectbox(
+                        "Select Quality:",
+                        options=[q[0] for q in quality_options],
+                        index=0
                     )
+                    format_id = quality_options[[q[0] for q in quality_options].index(selected)][1]
                 else:
-                    st.error("Failed to prepare video for download.")
-        else:
-            st.error("No quality options available.")
-    else:
-        st.error("Failed to fetch video information.")
+                    st.error("No available formats found")
+    except Exception as e:
+        st.error(f"Error processing URL: {str(e)}")
 
-# Footer
+if st.button("Download Video"):
+    if url and format_id:
+        try:
+            with st.spinner("Downloading..."):
+                file_path, title = download_video(url, format_id)
+
+                if file_path:
+                    st.success("Download complete!")
+                    with open(file_path, "rb") as f:
+                        st.download_button(
+                            "Save Video",
+                            data=f,
+                            file_name=os.path.basename(file_path),
+                            mime="video/mp4"
+                        )
+                    Path(file_path).unlink()  # Remove the file after download
+        except Exception as e:
+            st.error(f"Download failed: {str(e)}")
+    else:
+        st.warning("Please enter a valid URL and select quality")
+
 st.markdown("---")
-st.caption("This project is created by Bibek Kumar Thagunna. Respect copyright laws.")
+st.caption("Note: For educational purposes only. Respect copyright laws.")
