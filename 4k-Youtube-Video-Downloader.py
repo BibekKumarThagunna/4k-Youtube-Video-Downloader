@@ -14,7 +14,6 @@ def get_quality_options(info):
     formats = []
     seen = set()
     
-    # Extract video formats with both video and audio, or video-only
     for f in info['formats']:
         if f.get('vcodec') != 'none':
             res = f.get('height', 'Unknown')
@@ -22,7 +21,6 @@ def get_quality_options(info):
             fmt_note = f.get('format_note', 'N/A')
             ext = f.get('ext', 'mp4')
             
-            # Create display label
             label_parts = []
             if res: label_parts.append(f"{res}p")
             if fps: label_parts.append(f"{int(fps)}fps")
@@ -34,14 +32,13 @@ def get_quality_options(info):
                 formats.append((label, f['format_id']))
                 seen.add(res)
     
-    # Sort by resolution descending
     formats.sort(key=lambda x: int(x[0].split('p')[0]) if x[0][0].isdigit() else 0, reverse=True)
     return formats
 
 def download_video(url, format_id):
     try:
         ydl_opts = {
-            'format': f'{format_id}+bestaudio/best',  # Combine selected video with best audio
+            'format': f'{format_id}+bestaudio/best',
             'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'quiet': True,
@@ -81,6 +78,8 @@ url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch
 # Initialize progress bar
 progress_bar = st.progress(0)
 
+selected_format = None  # Initialize variable
+
 if url:
     try:
         with st.spinner("Fetching video info..."):
@@ -101,17 +100,19 @@ if url:
             
             if not quality_options:
                 st.error("No video formats available for this content")
-                st.stop()
-            
-            selected_label = st.selectbox(
-                "Available Qualities:",
-                options=[q[0] for q in quality_options],
-                index=0
-            )
-            selected_format = quality_options[[q[0] for q in quality_options].index(selected_label)][1]
+            else:
+                selected_label = st.selectbox(
+                    "Available Qualities:",
+                    options=[q[0] for q in quality_options],
+                    index=0
+                )
+                selected_format = quality_options[[q[0] for q in quality_options].index(selected_label)][1]
+                
+    except Exception as e:
+        st.error(f"Error fetching video info: {str(e)}")
 
 if st.button("Download Video"):
-    if url:
+    if url and selected_format:
         try:
             # Start download
             with st.spinner("Downloading..."):
@@ -133,9 +134,9 @@ if st.button("Download Video"):
                     # Clean up downloaded file
                     Path(file_path).unlink()
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Download error: {str(e)}")
     else:
-        st.warning("Please enter a valid YouTube URL")
+        st.warning("Please enter a valid YouTube URL and select quality first")
 
 # Sidebar information
 with st.sidebar:
