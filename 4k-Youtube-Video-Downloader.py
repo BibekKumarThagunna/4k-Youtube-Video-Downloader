@@ -72,7 +72,7 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Downloader 🎥")
-st.markdown("### Download videos directly in the background to the `downloads` folder.")
+st.markdown("### Download videos to the `downloads` folder.")
 
 # Check FFmpeg
 if not check_ffmpeg():
