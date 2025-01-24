@@ -1,4 +1,2 @@
 streamlit
-yt_dlp
-os  
-pathlib
+yt-dlp
