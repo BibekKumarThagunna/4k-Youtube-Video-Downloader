@@ -1,7 +1,22 @@
+# requirements.txt
+"""
+streamlit>=1.32.0
+yt-dlp>=2023.10.7
+ffmpeg-python>=0.2.0
+pydub>=0.25.1
+python-dotenv>=1.0.0
+"""
+
+# YouTube_Downloader.py
 import streamlit as st
 import yt_dlp
 import os
+import shutil
 from pathlib import Path
+
+# Check for FFmpeg installation
+def check_ffmpeg():
+    return shutil.which("ffmpeg") is not None
 
 def get_video_info(url):
     ydl_opts = {'quiet': True}
@@ -42,6 +57,10 @@ def get_quality_options(info):
     return formats
 
 def download_video(url, format_id):
+    if not check_ffmpeg():
+        st.error("FFmpeg not found! Please install FFmpeg first.")
+        return None, None
+    
     try:
         ydl_opts = {
             'format': f'{format_id}+bestaudio/best',
@@ -55,8 +74,14 @@ def download_video(url, format_id):
             info = ydl.extract_info(url)
             filename = ydl.prepare_filename(info)
             return filename, info['title']
+    except yt_dlp.utils.DownloadError as e:
+        if "ffmpeg" in str(e).lower():
+            st.error("FFmpeg installation required for merging audio/video streams")
+        else:
+            st.error(f"Download error: {str(e)}")
+        return None, None
     except Exception as e:
-        st.error(f"Download error: {str(e)}")
+        st.error(f"Error: {str(e)}")
         return None, None
 
 def progress_hook(d):
@@ -64,34 +89,39 @@ def progress_hook(d):
         progress = d.get('_percent_str', '0%').strip('%')
         try:
             progress_float = float(progress)
-            progress_bar.progress(int(progress_float))
+            st.session_state.progress = int(progress_float)
         except:
             pass
 
 # Streamlit UI configuration
 st.set_page_config(
-    page_title="YouTube DL Quality Selector",
+    page_title="YouTube DL Pro",
     page_icon="🎥",
     layout="centered"
 )
 
+# Check FFmpeg first
+if not check_ffmpeg():
+    st.error("⚠️ FFmpeg not detected! Please install FFmpeg first (see sidebar instructions)")
+    st.stop()
+
+# Initialize session state
+if 'selected_format' not in st.session_state:
+    st.session_state.selected_format = None
+if 'progress' not in st.session_state:
+    st.session_state.progress = 0
+
+# Main UI
 st.title("YouTube Video Downloader 🎬")
 st.markdown("### Download videos in your preferred quality")
 
-# Initialize session state variables
-if 'selected_format' not in st.session_state:
-    st.session_state.selected_format = None
+# Create downloads directory
+Path("downloads").mkdir(exist_ok=True)
 
 # URL input
 url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch?v=...")
 
-# Create downloads directory if not exists
-Path("downloads").mkdir(exist_ok=True)
-
-# Initialize progress bar
-progress_bar = st.progress(0)
-
-# Main processing logic
+# Processing logic
 if url:
     try:
         with st.spinner("Fetching video info..."):
@@ -124,7 +154,9 @@ if url:
     except Exception as e:
         st.error(f"Error processing video: {str(e)}")
 
-# Download button
+# Download section
+progress_bar = st.progress(st.session_state.progress)
+
 if st.button("Download Video"):
     if url and st.session_state.selected_format:
         try:
@@ -144,6 +176,7 @@ if st.button("Download Video"):
                         )
                     
                     Path(file_path).unlink()
+                    st.session_state.progress = 0
         except Exception as e:
             st.error(f"Download failed: {str(e)}")
     else:
@@ -153,21 +186,30 @@ if st.button("Download Video"):
 with st.sidebar:
     st.markdown("## Features")
     st.markdown("""
-    - Quality selection (up to 8K)
-    - Automatic audio merging
-    - Multiple format support
-    - Progress indicators
-    - Video metadata display
+    - 4K/8K support
+    - Quality selection
+    - Audio/video merging
+    - Progress tracking
+    - Metadata display
     """)
     
-    st.markdown("## Requirements")
+    st.markdown("## FFmpeg Install")
     st.markdown("""
-    - FFmpeg installed
-    - Python 3.7+
-    - yt-dlp package
+    **Required for audio merging:**
+    - [Windows Guide](https://phoenixnap.com/kb/ffmpeg-windows)
+    - Mac: `brew install ffmpeg`
+    - Linux: `sudo apt install ffmpeg`
+    """)
+    
+    st.markdown("## Support")
+    st.markdown("""
+    For issues:
+    - Check FFmpeg installation
+    - Try different URLs
+    - Ensure stable internet
     """)
 
 # Footer
 st.markdown("---")
-st.caption("Note: This tool is for personal use only. Respect copyright laws.")
-st.caption("Note: This Project is Created By Bibek Kumar Thagunna")
+st.caption("Note: For personal use only. Respect copyright laws.")
+st.caption("Created By: Bibek Kumar Thagunna | © 2024 All rights reserved")
