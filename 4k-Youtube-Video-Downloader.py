@@ -1,8 +1,8 @@
 import streamlit as st
 import yt_dlp
 import os
-import subprocess
 from pathlib import Path
+import subprocess
 
 # Check if FFmpeg is installed
 def check_ffmpeg():
@@ -16,7 +16,7 @@ def check_ffmpeg():
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
-        'cookiefile': 'cookies.txt',  # Path to cookies.txt
+        'cookiefile': 'cookies.txt',  # Path to cookies.txt (optional)
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -34,7 +34,7 @@ def get_quality_options(info):
     seen = set()
 
     for f in info['formats']:
-        if f.get('vcodec') != 'none':
+        if f.get('vcodec') != 'none':  # Include only video formats
             res = f.get('height')
             if res:
                 label = f"{res}p | {f.get('fps', '')}fps | {f.get('ext', '').upper()}"
@@ -53,7 +53,7 @@ def download_video(url, format_id):
             'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'quiet': True,
-            'cookiefile': 'cookies.txt',  # Path to cookies.txt
+            'cookiefile': 'cookies.txt',  # Path to cookies.txt (optional)
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -72,7 +72,7 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Downloader 🎥")
-st.markdown("### Download videos to the `downloads` folder.")
+st.markdown("### Download videos in your desired quality")
 
 # Check FFmpeg
 if not check_ffmpeg():
@@ -86,6 +86,7 @@ Path("downloads").mkdir(exist_ok=True)
 url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch?v=...")
 
 format_id = None  # Initialize variable
+quality_options = []  # Store quality options
 
 if url:
     try:
@@ -119,7 +120,7 @@ if st.button("Download Video"):
 
                 if file_path:
                     st.success(f"Video downloaded successfully: `{file_path}`")
-                    st.write("Check the `downloads` folder for your video.")
+                    st.write(f"Check the `downloads` folder for your video.")
         except Exception as e:
             st.error(f"Download failed: {str(e)}")
     else:
