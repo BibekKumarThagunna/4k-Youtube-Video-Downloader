@@ -6,7 +6,7 @@ import io
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
-        'cookiefile': 'cookies.txt',  # Path to cookies.txt (optional)
+        'cookiefile': 'cookies.txt',  # Optional: Use cookies to bypass restrictions if necessary
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -15,7 +15,7 @@ def get_video_info(url):
         st.error(f"Error getting video info: {str(e)}")
         return None
 
-# Get quality options from video info
+# Get quality options
 def get_quality_options(info):
     if not info:
         return []
@@ -38,86 +38,68 @@ def get_quality_options(info):
 # Download video into memory
 def download_video_to_memory(url, format_id):
     try:
+        buffer = io.BytesIO()
         ydl_opts = {
             'format': f'{format_id}+bestaudio/best',
-            'outtmpl': '-',
-            'merge_output_format': 'mp4',
             'quiet': True,
-            'cookiefile': 'cookies.txt',  # Path to cookies.txt (optional)
-            'outtmpl': '-',  # Output directly to memory
+            'outtmpl': '-',  # Avoid saving to disk
+            'merge_output_format': 'mp4',
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url)
-            buffer = io.BytesIO()
-            with ydl.stream_download(buffer):
-                pass
-
-            buffer.seek(0)
-            return buffer, info['title'] + ".mp4"
+            ydl.download([url])
+            info = ydl.extract_info(url, download=False)
+            return buffer, info["title"]
     except Exception as e:
-        st.error(f"Download error: {str(e)}")
+        st.error(f"Error downloading video: {str(e)}")
         return None, None
 
 # Streamlit UI
-st.set_page_config(
-    page_title="YouTube Downloader",
-    page_icon="🎬",
-    layout="centered"
-)
-
+st.set_page_config(page_title="YouTube Downloader", page_icon="🎬", layout="centered")
 st.title("YouTube Video Downloader 🎥")
-st.markdown("### Download videos in your desired quality")
+st.markdown("### Fetch and download YouTube videos in your preferred quality.")
 
-# URL input
-url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch?v=...")
-
-format_id = None  # Initialize variable
-quality_options = []  # Store quality options
+# Input URL
+url = st.text_input("Enter YouTube URL:", placeholder="https://www.youtube.com/watch?v=...")
 
 if url:
-    try:
-        with st.spinner("Fetching video info..."):
-            info = get_video_info(url)
+    with st.spinner("Fetching video information..."):
+        info = get_video_info(url)
 
-            if info:
-                st.subheader("Video Details")
-                col1, col2 = st.columns(2)
-                col1.markdown(f"**Title:** {info['title']}")
-                col2.markdown(f"**Duration:** {info['duration'] // 60} mins")
+    if info:
+        st.subheader("Video Details")
+        col1, col2 = st.columns(2)
+        col1.markdown(f"**Title:** {info['title']}")
+        col2.markdown(f"**Duration:** {info['duration'] // 60} mins")
 
-                quality_options = get_quality_options(info)
-                if quality_options:
-                    selected = st.selectbox(
-                        "Select Quality:",
-                        options=[q[0] for q in quality_options],
-                        index=0
-                    )
-                    format_id = quality_options[[q[0] for q in quality_options].index(selected)][1]
-                else:
-                    st.error("No available formats found")
-    except Exception as e:
-        st.error(f"Error processing URL: {str(e)}")
+        quality_options = get_quality_options(info)
+        if quality_options:
+            selected = st.selectbox(
+                "Select Quality:",
+                options=[q[0] for q in quality_options],
+                index=0
+            )
+            format_id = quality_options[[q[0] for q in quality_options].index(selected)][1]
 
-if st.button("Download Video"):
-    if url and format_id:
-        try:
-            with st.spinner("Preparing video for download..."):
-                video_data, filename = download_video_to_memory(url, format_id)
+            if st.button("Download Video"):
+                with st.spinner("Downloading video..."):
+                    buffer, title = download_video_to_memory(url, format_id)
 
-                if video_data:
-                    st.success("Video is ready for download!")
+                if buffer:
+                    st.success("Download ready!")
                     st.download_button(
-                        label="Download Video",
-                        data=video_data,
-                        file_name=filename,
+                        label="Click to Download",
+                        data=buffer,
+                        file_name=f"{title}.mp4",
                         mime="video/mp4"
                     )
-        except Exception as e:
-            st.error(f"Download failed: {str(e)}")
+                else:
+                    st.error("Failed to prepare video for download.")
+        else:
+            st.error("No quality options available.")
     else:
-        st.warning("Please enter a valid URL and select quality")
+        st.error("Failed to fetch video information.")
 
 # Footer
 st.markdown("---")
-st.caption("**This Project is Created By Bibek Kumar Thagunna**. For educational purposes only. Respect copyright laws.")
+st.caption("This project is created by Bibek Kumar Thagunna. Respect copyright laws.")
