@@ -1,5 +1,5 @@
-streamlit==1.32.2
-yt-dlp==2024.5.27
+streamlit
+yt-dlp
 ffmpeg-python==0.2.0
 pydub==0.25.1
 python-dotenv==1.0.0
