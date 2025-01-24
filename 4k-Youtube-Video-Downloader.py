@@ -72,7 +72,7 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Downloader 🎥")
-st.markdown("### Download videos in maximum quality")
+st.markdown("### Download videos directly in the background to the `downloads` folder.")
 
 # Check FFmpeg
 if not check_ffmpeg():
@@ -118,19 +118,13 @@ if st.button("Download Video"):
                 file_path, title = download_video(url, format_id)
 
                 if file_path:
-                    st.success("Download complete!")
-                    with open(file_path, "rb") as f:
-                        st.download_button(
-                            "Save Video",
-                            data=f,
-                            file_name=os.path.basename(file_path),
-                            mime="video/mp4"
-                        )
-                    Path(file_path).unlink()  # Remove the file after download
+                    st.success(f"Video downloaded successfully: `{file_path}`")
+                    st.write("Check the `downloads` folder for your video.")
         except Exception as e:
             st.error(f"Download failed: {str(e)}")
     else:
         st.warning("Please enter a valid URL and select quality")
 
+# Footer
 st.markdown("---")
-st.caption("Note: For educational purposes only. Respect copyright laws.")
+st.caption("**This Project is Created By Bibek Kumar Thagunna**. For educational purposes only. Respect copyright laws.")
