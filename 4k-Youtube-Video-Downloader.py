@@ -1,16 +1,6 @@
 import streamlit as st
 import yt_dlp
-import os
-from pathlib import Path
-import subprocess
-
-# Check if FFmpeg is installed
-def check_ffmpeg():
-    try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
-        return True
-    except:
-        return False
+import io
 
 # Get video information
 def get_video_info(url):
@@ -45,21 +35,26 @@ def get_quality_options(info):
     formats.sort(key=lambda x: int(x[0].split('p')[0]), reverse=True)
     return formats
 
-# Download video
-def download_video(url, format_id):
+# Download video into memory
+def download_video_to_memory(url, format_id):
     try:
         ydl_opts = {
             'format': f'{format_id}+bestaudio/best',
-            'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
+            'outtmpl': '-',
             'merge_output_format': 'mp4',
             'quiet': True,
             'cookiefile': 'cookies.txt',  # Path to cookies.txt (optional)
+            'outtmpl': '-',  # Output directly to memory
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url)
-            filename = ydl.prepare_filename(info)
-            return filename, info['title']
+            buffer = io.BytesIO()
+            with ydl.stream_download(buffer):
+                pass
+
+            buffer.seek(0)
+            return buffer, info['title'] + ".mp4"
     except Exception as e:
         st.error(f"Download error: {str(e)}")
         return None, None
@@ -73,14 +68,6 @@ st.set_page_config(
 
 st.title("YouTube Video Downloader 🎥")
 st.markdown("### Download videos in your desired quality")
-
-# Check FFmpeg
-if not check_ffmpeg():
-    st.error("FFmpeg not found! Please install it on your system.")
-    st.stop()
-
-# Create downloads directory
-Path("downloads").mkdir(exist_ok=True)
 
 # URL input
 url = st.text_input("Enter YouTube URL:", placeholder="https://youtube.com/watch?v=...")
@@ -115,12 +102,17 @@ if url:
 if st.button("Download Video"):
     if url and format_id:
         try:
-            with st.spinner("Downloading..."):
-                file_path, title = download_video(url, format_id)
+            with st.spinner("Preparing video for download..."):
+                video_data, filename = download_video_to_memory(url, format_id)
 
-                if file_path:
-                    st.success(f"Video downloaded successfully: `{file_path}`")
-                    st.write(f"Check the `downloads` folder for your video.")
+                if video_data:
+                    st.success("Video is ready for download!")
+                    st.download_button(
+                        label="Download Video",
+                        data=video_data,
+                        file_name=filename,
+                        mime="video/mp4"
+                    )
         except Exception as e:
             st.error(f"Download failed: {str(e)}")
     else:
