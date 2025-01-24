@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+# Check if FFmpeg is installed
 def check_ffmpeg():
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
@@ -11,8 +12,12 @@ def check_ffmpeg():
     except:
         return False
 
+# Get video information
 def get_video_info(url):
-    ydl_opts = {'quiet': True}
+    ydl_opts = {
+        'quiet': True,
+        'cookiefile': 'cookies.txt',  # Path to cookies.txt
+    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)
@@ -20,13 +25,14 @@ def get_video_info(url):
         st.error(f"Error getting video info: {str(e)}")
         return None
 
+# Get quality options from video info
 def get_quality_options(info):
     if not info:
         return []
-    
+
     formats = []
     seen = set()
-    
+
     for f in info['formats']:
         if f.get('vcodec') != 'none':
             res = f.get('height')
@@ -35,10 +41,11 @@ def get_quality_options(info):
                 if res not in seen:
                     formats.append((label, f['format_id']))
                     seen.add(res)
-    
+
     formats.sort(key=lambda x: int(x[0].split('p')[0]), reverse=True)
     return formats
 
+# Download video
 def download_video(url, format_id):
     try:
         ydl_opts = {
@@ -46,6 +53,7 @@ def download_video(url, format_id):
             'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'quiet': True,
+            'cookiefile': 'cookies.txt',  # Path to cookies.txt
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -68,7 +76,7 @@ st.markdown("### Download videos in maximum quality")
 
 # Check FFmpeg
 if not check_ffmpeg():
-    st.error("FFmpeg not found! Please wait while we install it...")
+    st.error("FFmpeg not found! Please install it on your system.")
     st.stop()
 
 # Create downloads directory
@@ -83,13 +91,13 @@ if url:
     try:
         with st.spinner("Fetching video info..."):
             info = get_video_info(url)
-            
+
             if info:
                 st.subheader("Video Details")
                 col1, col2 = st.columns(2)
                 col1.markdown(f"**Title:** {info['title']}")
                 col2.markdown(f"**Duration:** {info['duration'] // 60} mins")
-                
+
                 quality_options = get_quality_options(info)
                 if quality_options:
                     selected = st.selectbox(
@@ -108,7 +116,7 @@ if st.button("Download Video"):
         try:
             with st.spinner("Downloading..."):
                 file_path, title = download_video(url, format_id)
-                
+
                 if file_path:
                     st.success("Download complete!")
                     with open(file_path, "rb") as f:
@@ -118,7 +126,7 @@ if st.button("Download Video"):
                             file_name=os.path.basename(file_path),
                             mime="video/mp4"
                         )
-                    Path(file_path).unlink()
+                    Path(file_path).unlink()  # Remove the file after download
         except Exception as e:
             st.error(f"Download failed: {str(e)}")
     else:
