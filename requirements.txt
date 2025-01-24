@@ -1,6 +1,6 @@
 streamlit
 yt-dlp
-ffmpeg-python==0.2.0
-pydub==0.25.1
-python-dotenv==1.0.0
-ffmpeg-static==4.2.2
+ffmpeg-python
+pydub
+python-dotenv
+ffmpeg-static
