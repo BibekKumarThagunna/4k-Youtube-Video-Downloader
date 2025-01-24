@@ -111,14 +111,14 @@ if url:
     except Exception as e:
         st.error(f"Error processing URL: {str(e)}")
 
-if st.button("Download Video"):
+if st.button("Prepare-Video-To-Download"):
     if url and format_id:
         try:
-            with st.spinner("Downloading..."):
+            with st.spinner("Preparing..."):
                 file_path, title = download_video(url, format_id)
 
                 if file_path:
-                    st.success("Download complete!")
+                    st.success("Prepared!")
                     with open(file_path, "rb") as f:
                         st.download_button(
                             "Save Video",
